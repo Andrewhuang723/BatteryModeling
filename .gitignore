@@ -1,0 +1,7 @@
+# ignore csv, pyc, 
+*.csv
+*.pyc
+
+# ignore example file
+example/
+DOE/
