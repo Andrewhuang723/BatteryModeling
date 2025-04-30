@@ -6,6 +6,8 @@ import pandas as pd
 import os
 import pybamm.models
 from typing import List
+from sklearn.metrics import mean_absolute_percentage_error
+from scipy.interpolate import interp1d
 
 def start_plot(figsize=(10, 8), style = 'whitegrid', dpi=100):
     fig = plt.figure(figsize=figsize, dpi=dpi)
@@ -155,3 +157,21 @@ def get_parameters(fpath: str) -> dict:
 
 def exponential_decay(A: float, k:float, p:float, t:np.array):
     return A * np.exp(-(k * t) ** p)
+
+
+def compare_voltage(sim_df: pd.DataFrame, exp_df: pd.DataFrame) -> float:
+    x_sim = sim_df["Discharge capacity [A.h]"]
+    y_sim = sim_df["Voltage [V]"]
+    x_exp = exp_df["Discharge capacity [A.h]"]
+    y_exp = exp_df["Voltage [V]"]
+
+    exp_function = interp1d(x_exp, y_exp, 
+                            kind='linear', bounds_error=False, fill_value='extrapolate')
+    y_exp_interp = exp_function(x=x_sim)
+    return mean_absolute_percentage_error(y_true=y_exp_interp, y_pred=y_sim)
+
+def compare_capacity(sim_df: pd.DataFrame, exp_df: pd.DataFrame) -> float:
+    y_sim = np.array([sim_df["Discharge capacity [A.h]"][-1]])
+    y_exp = np.array([exp_df["Discharge capacity [A.h]"][-1]])
+
+    return mean_absolute_percentage_error(y_true=y_exp, y_pred=y_sim)
