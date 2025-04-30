@@ -1,0 +1,11 @@
+PROTOCOL: "Discharge at 1 C until 2.0 V"
+PERIOD: 10
+TEMP: -20
+PARAMETERS_1: 
+  NAME: Electrolyte diffusivity [m2.s-1]
+  BOUNDS: [1.00e-13, 1.00e-11]
+  SAMPLE_POINTS: 3
+PARAMETERS_2: 
+  NAME: Positive particle diffusivity [m2.s-1]
+  BOUNDS: [5.00e-18, 1.00e-13]
+  SAMPLE_POINTS: 3
