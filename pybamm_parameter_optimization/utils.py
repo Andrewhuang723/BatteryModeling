@@ -63,7 +63,7 @@ def start_plot(figsize=(10, 8), style = 'whitegrid', dpi=100):
     plt.tight_layout()
     with sns.axes_style(style):
         ax = fig.add_subplot(gs[0,0])
-    return ax
+    return fig, ax
 
 def select_parameters(df: pd.DataFrame, name: str):
     dfc = df.copy()
@@ -199,8 +199,8 @@ def process_parameters(updated_parameter_values: dict,
     return sim_df
 
 def plot_overpotentials(results_df: pd.DataFrame, negative_ocp_function, positive_ocp_function,
-                        save_name: str, is_shown=True):
-    ax = start_plot(dpi=200, style="darkgrid", figsize=(10, 10))
+                        save_name: str, is_shown=True) -> None:
+    fig, ax = start_plot(dpi=200, style="darkgrid", figsize=(10, 10))
 
     initial_positive_lithiation = results_df["Positive electrode stoichiometry"].iloc[0]
     initial_negative_lithiation = results_df["Negative electrode stoichiometry"].iloc[0]
@@ -259,6 +259,7 @@ def plot_overpotentials(results_df: pd.DataFrame, negative_ocp_function, positiv
     if save_name:
         dirname = os.path.dirname(save_name)
         os.makedirs(dirname, exist_ok=True)
-        plt.savefig(save_name)
+        fig.savefig(save_name)
     if is_shown:
         plt.show()
+    return None
