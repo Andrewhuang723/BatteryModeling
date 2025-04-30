@@ -1,4 +1,5 @@
 import matplotlib.pyplot as plt
+import pybamm.solvers
 import seaborn as sns
 import pybamm
 import numpy as np
@@ -8,14 +9,6 @@ import pybamm.models
 from typing import List
 from sklearn.metrics import mean_absolute_percentage_error
 from scipy.interpolate import interp1d
-
-def start_plot(figsize=(10, 8), style = 'whitegrid', dpi=100):
-    fig = plt.figure(figsize=figsize, dpi=dpi)
-    gs = fig.add_gridspec(1,1)
-    plt.tight_layout()
-    with sns.axes_style(style):
-        ax = fig.add_subplot(gs[0,0])
-    return ax
 
 basic_variables = [
     "Time [s]",
@@ -63,12 +56,22 @@ lithium_losses = [
     "Loss of lithium to negative SEI [mol]"
 ]
 
+## Plot function
+def start_plot(figsize=(10, 8), style = 'whitegrid', dpi=100):
+    fig = plt.figure(figsize=figsize, dpi=dpi)
+    gs = fig.add_gridspec(1,1)
+    plt.tight_layout()
+    with sns.axes_style(style):
+        ax = fig.add_subplot(gs[0,0])
+    return ax
+
 def select_parameters(df: pd.DataFrame, name: str):
     dfc = df.copy()
     dfc.set_index("Unnamed: 0", inplace=True)
     dfc.drop(columns="1", inplace=True)
     return float(dfc.loc[name].astype(float).iloc[0])
 
+## Convert pybamm solution to dict
 def sol2arr(sol: pybamm.Solution, vars: List[str]) -> dict:
     """
     Convert PyBaMM solution to a dictionary of arrays.
@@ -175,3 +178,22 @@ def compare_capacity(sim_df: pd.DataFrame, exp_df: pd.DataFrame) -> float:
     y_exp = np.array([exp_df["Discharge capacity [A.h]"][-1]])
 
     return mean_absolute_percentage_error(y_true=y_exp, y_pred=y_sim)
+
+
+def process_parameters(updated_parameter_values: dict, 
+                       base_parameters: pybamm.Parameter,
+                       model: pybamm.models,
+                       protocol: pybamm.Experiment,
+                       solver: pybamm.solvers):
+    ### Create a copy from base-parameters
+    trial_parameters = base_parameters.copy()
+
+    for key, val in updated_parameter_values.items():
+        trial_parameters[key] = val
+
+    solution = run_simulation(model=model, parameters=trial_parameters, experiment=protocol,
+                              save_name=None, solver=solver)
+
+    sim_dict = sol2arr(sol=solution, vars=["cycle", "step"] + basic_variables+overpotentials)
+    sim_df = pd.DataFrame(sim_dict)
+    return sim_df
