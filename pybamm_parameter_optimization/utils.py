@@ -174,8 +174,8 @@ def compare_voltage(sim_df: pd.DataFrame, exp_df: pd.DataFrame) -> float:
     return mean_absolute_percentage_error(y_true=y_exp_interp, y_pred=y_sim)
 
 def compare_capacity(sim_df: pd.DataFrame, exp_df: pd.DataFrame) -> float:
-    y_sim = np.array([sim_df["Discharge capacity [A.h]"][-1]])
-    y_exp = np.array([exp_df["Discharge capacity [A.h]"][-1]])
+    y_sim = np.array([sim_df["Discharge capacity [A.h]"].iloc[-1]])
+    y_exp = np.array([exp_df["Discharge capacity [A.h]"].iloc[-1]])
 
     return mean_absolute_percentage_error(y_true=y_exp, y_pred=y_sim)
 

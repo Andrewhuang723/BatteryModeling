@@ -1,18 +1,17 @@
 PROTOCOL: "Discharge at 1 C until 2.0 V"
 PERIOD: 10
 TEMP: -20
-ALGO: SLSQP
-OBJ: V
+ALGO: DE
+OBJ: [V, Q]
 BOUNDS: 
-  Negative particle diffusivity [m2.s-1]: [5.00e-18, 1.00e-13]
-  Positive particle diffusivity [m2.s-1]: [5.00e-18, 1.00e-13]
-  Electrolyte diffusivity [m2.s-1]: [1.00e-12, 1.00e-10]
-  Cation transference number: [0.1, 0.6]
-  Initial concentration in positive electrode [mol.m-3]: [2.2819, 2281.9]
-  Initial concentration in negative electrode [mol.m-3]: [20000.0, 25000.0]
-  Negative particle radius [m]: [5.00e-7, 5.00e-5]
-  Positive particle radius [m]: [6.00e-7, 6.00e-5]
+  Negative particle diffusivity [m2.s-1]: [1.00e-20, 1.00e-16]
+  Positive particle diffusivity [m2.s-1]: [1.00e-20, 1.00e-16]
+  Negative electrode conductivity [S.m-1]: [1.00e+00, 1.00e-3]
+  Positive electrode conductivity [S.m-1]: [1.00e+00, 1.00e-3]
+  Electrolyte diffusivity [m2.s-1]: [1.00e-13, 1.00e-11]
+  Negative particle radius [m]: [1.00e-8, 1.00e-5]
+  Positive particle radius [m]: [1.00e-8, 1.00e-5]
 DISCHARGE_STEPS: [1] # the discharge step no. for objective: [discharge step no., discharge step no., ]
 DISCHARGE_CYCLES: [1] # the cycle no. for objective: [discharge cycle no., discharge cycle no., ]
-MAX_ITER: 200
+MAX_ITER: 10
 POP_SIZE: 15

@@ -17,7 +17,7 @@ class ParameterOptimized:
                        experiment: pybamm.Experiment, 
                        solver,
                        init_values: List[float], 
-                       objective: str,
+                       objective: List[str],
                        names: List[str], 
                        base_parameters: pybamm.Parameter,
                        discharge_steps: Optional[List[int]],
@@ -153,6 +153,9 @@ class ParameterOptimized:
             
             elif self.objective == "Voltage [V]":
                 mse = self.compare_voltage(sim_solution_dict=sim_solution_dict)
+            
+            elif self.objective == ["Discharge capacity [A.h]", "Voltage [V]"] or self.objective == ["Voltage [V]", "Discharge capacity [A.h]"]:
+                mse = self.compare_discharge_capacity(sim_solution_dict=sim_solution_dict) + self.compare_voltage(sim_solution_dict=sim_solution_dict)
             
             else:
                 raise Exception("'method' only accepts: ['Discharge capacity', 'Voltage']")

@@ -5,3 +5,5 @@
 # ignore example file
 example/
 DOE/
+.vscode/
+__pycache__/

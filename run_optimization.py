@@ -18,17 +18,20 @@ parser.add_argument('--DATA_PATH', type=str, required=True, help='source data')
 parser.add_argument('--SAVE_PATH', type=str, required=True, help='source data')
 parser.add_argument('--CPU_CORE_IDX', type=int, required=True, help='CPU core index to use (e.g., 2)')
 parser.add_argument('--config', type=str, default='./config.yaml', help='optimization_settings')
+parser.add_argument('--parameters_config', type=str, required=False, help='simple_parameter_settings')
 args = parser.parse_args()
 
 DATA_PATH = args.DATA_PATH
 SAVE_PATH = args.SAVE_PATH
 CPU_CORE_IDX = args.CPU_CORE_IDX
 cfg_path = args.config
+parameters_cfg_path = args.parameters_config
 
 print(f"DATA PATH: {DATA_PATH}")
 print(f"SAVE PATH: {SAVE_PATH}")
 print(f"CPU CORE IDX: {CPU_CORE_IDX}")
 print(f"config file PATH: {cfg_path}")
+print(f"parameters config file PATH: {parameters_cfg_path}")
 
 with open(cfg_path) as f:
     cfg = yaml.load(f, Loader=yaml.FullLoader)
@@ -44,6 +47,10 @@ DISCHARGE_CYCLES = cfg["DISCHARGE_CYCLES"]
 MAX_ITER = cfg["MAX_ITER"]
 POP_SIZE = cfg["POP_SIZE"]
 
+with open(parameters_cfg_path) as f:
+    parameters_cfg = yaml.load(f, Loader=yaml.FullLoader)
+
+
 if OBJ == "Q":
     if DISCHARGE_CYCLES is None or DISCHARGE_STEPS is None:
         raise Exception("Use 'Q' (Discharge capacity) for objective.\nPlease set the arguments for DISCHARGE_STEPS and DISCHARGE_CYCLES")
@@ -51,6 +58,10 @@ if OBJ == "Q":
         objective = "Discharge capacity [A.h]"
 elif OBJ == "V":
     objective = "Voltage [V]"
+
+elif OBJ == ["V", "Q"] or OBJ == ["Q", "V"]:
+    objective = ["Voltage [V]", "Discharge capacity [A.h]"]
+
 else:
     raise Exception(f"Objective '{OBJ}' is not recognized. Either 'V' or 'Q' is valid")
 
@@ -95,6 +106,7 @@ bounds = [tuple(BOUNDS[name]) for name in BOUNDS.keys()]
 ### Create a copy from base-parameters
 trial_parameters = parameters.copy()
 trial_parameters.update(SEI_pararmeters, check_already_exists=False)
+trial_parameters.update(parameters_cfg)
 
 ### Process temperatures
 trial_parameters["Ambient temperature [K]"] = 273.15 + TEMP
@@ -138,7 +150,7 @@ sim_df = pd.DataFrame(sim_dict)
 
 xcol = "Discharge capacity [A.h]"
 ycol = "Voltage [V]"
-ax = start_plot(dpi=200, style="darkgrid")
+fig, ax = start_plot(dpi=200, style="darkgrid")
 sns.lineplot(data=df, x=xcol, y=ycol, label=rf"$\bf Experiment$", linewidth=4, color="navy")
 sns.lineplot(data=sim_df, x=xcol, y=ycol, label=rf"$\bf Prediction$", linewidth=4, color="darkorange")
 
@@ -147,4 +159,4 @@ plt.ylabel(rf"$\bf Capacity (Ah)$", fontsize=30)
 plt.xticks(fontsize=20)
 plt.yticks(fontsize=20)
 ax.legend(shadow=True, fontsize=20)
-plt.show()
+fig.savefig(os.path.join(os.path.dirname(SAVE_PATH), "results.png"))
