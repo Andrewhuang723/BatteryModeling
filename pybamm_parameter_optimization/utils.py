@@ -134,9 +134,9 @@ def run_simulation(model,
         sim = pybamm.Simulation(model, experiment=experiment, parameter_values=parameters)
     
     if initial_sol:
-        solution = sim.solve(starting_solution=initial_sol)
+        solution = sim.solve(starting_solution=initial_sol, calc_esoh=False)
     else:
-        solution = sim.solve()
+        solution = sim.solve(calc_esoh=False)
     
     if save_name:
         dirname = os.path.dirname(save_name)
@@ -144,6 +144,9 @@ def run_simulation(model,
         param_df = pd.DataFrame(parameters._dict_items).transpose()
         param_df.to_csv(save_name)
     return solution
+
+def get_cycle_col(col: str, cycle_df: pd.DataFrame, step_idx: int):
+    return cycle_df.loc[cycle_df["step"] == step_idx].groupby("cycle").last()[col]
 
 
 def get_parameters(fpath: str) -> dict:
@@ -247,11 +250,11 @@ def plot_overpotentials(results_df: pd.DataFrame, negative_ocp_function, positiv
         upper_bound -= eta
         
     sns.lineplot(data=results_df, x="Discharge capacity [A.h]", y="Voltage [V]", 
-                label="Voltage", ls="--", color="k")
+                label="Voltage", ls="--", color="cyan", linewidth=4)
 
     ax.legend(shadow=True)
-    plt.ylabel(rf"$\bf Voltage (V)$", fontsize=30)
-    plt.xlabel(rf"$\bf Capacity (Ah)$", fontsize=30)
+    plt.ylabel(rf"$\bf Voltage [V]$", fontsize=30)
+    plt.xlabel(rf"$\bf Discharge capacity [A.h]$", fontsize=30)
     plt.xticks(fontsize=20)
     plt.yticks(fontsize=20)
     ax.legend(shadow=True, loc="lower left")
@@ -262,4 +265,4 @@ def plot_overpotentials(results_df: pd.DataFrame, negative_ocp_function, positiv
         fig.savefig(save_name)
     if is_shown:
         plt.show()
-    return None
+    return fig

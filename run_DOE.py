@@ -43,11 +43,12 @@ with open(cfg_path) as f:
 PROTOCOL = cfg["PROTOCOL"]
 PERIOD = cfg["PERIOD"]
 TEMP = cfg["TEMP"]
-PARAMETERS_1 = cfg["PARAMETERS_1"]
-PARAMETERS_2 = cfg["PARAMETERS_2"]
+PARAMETERS_INFO = cfg["PARAMETERS_INFO"]
+PARAMETERS_COUNT = len(PARAMETERS_INFO.keys())
 
 with open(parameters_cfg_path) as f:
     parameters_cfg = yaml.load(f, Loader=yaml.FullLoader)
+
 
 
 ### Process CPU_CORE_IDX
@@ -70,38 +71,56 @@ safe_solver = pybamm.CasadiSolver(atol=1e-3, rtol=1e-3, mode="safe", dt_max=1,
                                     return_solution_if_failed_early=True)
 
 ### Create meshgrid of parameters
-PARAMETERS_1_POINTS = np.linspace(*PARAMETERS_1["BOUNDS"], PARAMETERS_1["SAMPLE_POINTS"])
-PARAMETERS_2_POINTS = np.linspace(*PARAMETERS_2["BOUNDS"], PARAMETERS_2["SAMPLE_POINTS"])
-P1_VAR_PTS, P2_VAR_PTS = np.meshgrid(PARAMETERS_1_POINTS, PARAMETERS_2_POINTS)
+def build_parameter_grid(param_dict: dict):
+    parameter_points = [
+        np.linspace(*i_parameters["BOUNDS"], i_parameters["SAMPLE_POINTS"])
+        for i_parameters in param_dict.values()
+    ]
+    meshes = np.meshgrid(*parameter_points, indexing='ij')
+    design_matrix = np.stack(meshes, axis=-1).reshape(-1, len(parameter_points))
+    return meshes, design_matrix
+
+meshes, design_matrix = build_parameter_grid(param_dict=PARAMETERS_INFO)
 
 # Create Z mesh which is used to store errors
-Z = np.zeros([len(PARAMETERS_1_POINTS) * len(PARAMETERS_2_POINTS)])
+Z = np.zeros([len(design_matrix)])
 
+print(f"Total {len(Z)} experiments will be run.\n")
 
+# Initialized plot with experimental data
+# xcol = "Discharge capacity [A.h]"
+# ycol = "Voltage [V]"
+# fig, ax = start_plot(dpi=200, style="darkgrid")
+# sns.lineplot(data=df, x=xcol, y=ycol, label=rf"$\bf Experiment$", linewidth=4, color="navy")
 
-xcol = "Discharge capacity [A.h]"
-ycol = "Voltage [V]"
-fig, ax = start_plot(dpi=200, style="darkgrid")
-sns.lineplot(data=df, x=xcol, y=ycol, label=rf"$\bf Experiment$", linewidth=4, color="navy")
+# plot with simulation data
 
-for i, (p1, p2) in enumerate(zip(P1_VAR_PTS.reshape(-1), P2_VAR_PTS.reshape(-1))):
+results_df = {
+    "Voltage Error": [],
+    "Capacity Error": [],
+}
+
+for i, var_pt in enumerate(design_matrix):
+    design_dict = {}
     print(f"\nIteration {i}:\nRunning parameters:")
-    print(f"{PARAMETERS_1['NAME']} = {p1}")
-    print(f"{PARAMETERS_2['NAME']} = {p2}\n")
-    PARMETER_1_FLAG = "\ ".join(PARAMETERS_1['NAME'].split(" "))
-    PARMETER_2_FLAG = "\ ".join(PARAMETERS_2['NAME'].split(" "))
-    title_tag_name = rf"$\bf {PARMETER_1_FLAG}: {p1:.2e}\ {PARMETER_2_FLAG}: {p2:.2e}$"
-    file_tag_name = "%s_%.2e_%s_%.2e" % (PARAMETERS_1['NAME'], p1, PARAMETERS_2['NAME'], p2)
+    for j, var_dict in enumerate(PARAMETERS_INFO.values()):
+        print(f"{var_dict['NAME']} = {var_pt[j]}")
+        design_dict[var_dict['NAME']] = var_pt[j]
+        PARMETER_FLAG = "\ ".join(var_dict['NAME'].split(" "))
+        if results_df.get(var_dict['NAME']) is None:
+            results_df[var_dict['NAME']] = []
+        results_df[var_dict['NAME']].append(var_pt[j])
+        
+        # title_tag_name = rf"$\bf {PARMETER_1_FLAG}: {p1:.2e}\ {PARMETER_2_FLAG}: {p2:.2e}$"
+        # file_tag_name = "%s_%.2e_%s_%.2e" % (PARAMETERS_1['NAME'], p1, PARAMETERS_2['NAME'], p2)
     
     
     ## Store vary parameters
     update_parameter_values = parameters_cfg.copy()
 
-
+    update_parameter_values.update(design_dict)
     update_parameter_values.update(
         {
-            PARAMETERS_1['NAME']: p1,
-            PARAMETERS_2['NAME']: p2,
             "Ambient temperature [K]": 273.15 + TEMP,
             "Initial temperature [K]": 273.15 + TEMP
         }
@@ -116,47 +135,52 @@ for i, (p1, p2) in enumerate(zip(P1_VAR_PTS.reshape(-1), P2_VAR_PTS.reshape(-1))
                                     solver=safe_solver)
         ## Store error values
         Z[i] = compare_voltage(sim_df=sim_df, exp_df=df)
+        results_df["Voltage Error"].append(Z[i])
+        results_df["Capacity Error"].append(compare_capacity(sim_df=sim_df, exp_df=df))
         
         ## plot overpotentials
-        plot_overpotentials(results_df=sim_df,
-                            negative_ocp_function=parameters["Negative electrode OCP [V]"],
-                            positive_ocp_function=parameters["Positive electrode OCP [V]"],
-                            save_name=os.path.join(SAVE_DIR, f"{file_tag_name}.png"),
-                            is_shown=False)
-
+        # plot_overpotentials(results_df=sim_df,
+        #                     negative_ocp_function=parameters["Negative electrode OCP [V]"],
+        #                     positive_ocp_function=parameters["Positive electrode OCP [V]"],
+        #                     save_name=None,
+                            # save_name=os.path.join(SAVE_DIR, f"{file_tag_name}.png"),
+                            # is_shown=False)
 
         ## Plot discharge/charge curves
-        sns.lineplot(data=sim_df, x=xcol, y=ycol, 
-                    label=rf"$\bf Prediction: $" + title_tag_name, linewidth=4,
-                    ax=ax)
+        # sns.lineplot(data=sim_df, x=xcol, y=ycol, 
+        #             label=rf"$\bf Prediction: $" , linewidth=4,
+        #             ax=ax)
     except Exception as e:
+        
+        results_df["Voltage Error"].append(1)
+        results_df["Capacity Error"].append(1)
         print(f"Error in simulation function: {str(e)}")
     
 
+pd.DataFrame(results_df).to_csv(os.path.join(SAVE_DIR, "results.csv"), index=False)
 
-plt.xlabel(rf"$\bf {{xcol}}$", fontsize=30)
-plt.ylabel(rf"$\bf {{ycol}}$", fontsize=30)
-plt.xticks(fontsize=20)
-plt.yticks(fontsize=20)
-ax.legend(shadow=True, fontsize=7.5)
-fig.savefig(os.path.join(SAVE_DIR, "results.png"))
-# plt.show()
+# plt.xlabel(rf"$\bf {{xcol}}$", fontsize=30)
+# plt.ylabel(rf"$\bf {{ycol}}$", fontsize=30)
+# plt.xticks(fontsize=20)
+# plt.yticks(fontsize=20)
+# ax.legend(shadow=True, fontsize=7.5)
+# fig.savefig(os.path.join(SAVE_DIR, "results.png"))
 
 
-### Plot conntour map
-if (len(PARAMETERS_1_POINTS) >= 2) and (len(PARAMETERS_2_POINTS) >= 2):
-    fig, ax = start_plot(dpi=200, style="darkgrid")
-    Z_arr = Z.reshape(len(PARAMETERS_1_POINTS), len(PARAMETERS_2_POINTS))
-    plt.contourf(P1_VAR_PTS, P2_VAR_PTS, Z_arr, levels=40)
-    plt.colorbar(label=rf"$\bf Voltage Error [\%]$")
-    plt.xlabel(rf"$\bf {PARAMETERS_1['NAME']}$")
-    plt.ylabel(rf"$\bf {PARAMETERS_2['NAME']}$")
-    fig.savefig(os.path.join(SAVE_DIR, "contour.png"))
+# ### Plot conntour map
+# if (len(PARAMETERS_1_POINTS) >= 2) and (len(PARAMETERS_2_POINTS) >= 2):
+#     fig, ax = start_plot(dpi=200, style="darkgrid")
+#     Z_arr = Z.reshape(len(PARAMETERS_1_POINTS), len(PARAMETERS_2_POINTS))
+#     plt.contourf(P1_VAR_PTS, P2_VAR_PTS, Z_arr, levels=40)
+#     plt.colorbar(label=rf"$\bf Voltage Error [\%]$")
+#     plt.xlabel(rf"$\bf {PARAMETERS_1['NAME']}$")
+#     plt.ylabel(rf"$\bf {PARAMETERS_2['NAME']}$")
+#     fig.savefig(os.path.join(SAVE_DIR, "contour.png"))
 
-else:
-    fig, ax = start_plot(dpi=200, style="darkgrid")
-    sns.lineplot(x=P1_VAR_PTS.reshape(-1), y=Z.reshape(-1))
-    plt.xlabel(rf"$\bf {PARAMETERS_1['NAME']}$", fontsize=30)
-    plt.ylabel(rf"$\bf Error (\%)$", fontsize=30)
-    ax.legend(shadow=True, fontsize=25, loc="best")
-    fig.savefig(os.path.join(SAVE_DIR, "line.png"))
+# else:
+#     fig, ax = start_plot(dpi=200, style="darkgrid")
+#     sns.lineplot(x=P1_VAR_PTS.reshape(-1), y=Z.reshape(-1))
+#     plt.xlabel(rf"$\bf {PARAMETERS_1['NAME']}$", fontsize=30)
+#     plt.ylabel(rf"$\bf Error (\%)$", fontsize=30)
+#     ax.legend(shadow=True, fontsize=25, loc="best")
+#     fig.savefig(os.path.join(SAVE_DIR, "line.png"))
