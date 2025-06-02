@@ -87,12 +87,6 @@ Z = np.zeros([len(design_matrix)])
 
 print(f"Total {len(Z)} experiments will be run.\n")
 
-# Initialized plot with experimental data
-# xcol = "Discharge capacity [A.h]"
-# ycol = "Voltage [V]"
-# fig, ax = start_plot(dpi=200, style="darkgrid")
-# sns.lineplot(data=df, x=xcol, y=ycol, label=rf"$\bf Experiment$", linewidth=4, color="navy")
-
 # plot with simulation data
 
 results_df = {

@@ -148,7 +148,6 @@ def run_simulation(model,
 def get_cycle_col(col: str, cycle_df: pd.DataFrame, step_idx: int):
     return cycle_df.loc[cycle_df["step"] == step_idx].groupby("cycle").last()[col]
 
-
 def get_parameters(fpath: str) -> dict:
     parameters = pd.read_csv(fpath)
     parameters.drop(columns="1", inplace=True)
@@ -160,15 +159,14 @@ def get_parameters(fpath: str) -> dict:
         else x).to_dict()
     return parameters_dict
 
-
 def exponential_decay(A: float, k:float, p:float, t:np.array):
     return A * np.exp(-(k * t) ** p)
 
 
-def compare_voltage(sim_df: pd.DataFrame, exp_df: pd.DataFrame) -> float:
-    x_sim = sim_df["Discharge capacity [A.h]"]
+def compare_voltage(sim_df: pd.DataFrame, exp_df: pd.DataFrame, on="Discharge capacity [A.h]") -> float:
+    x_sim = sim_df[on]
     y_sim = sim_df["Voltage [V]"]
-    x_exp = exp_df["Discharge capacity [A.h]"]
+    x_exp = exp_df[on]
     y_exp = exp_df["Voltage [V]"]
 
     exp_function = interp1d(x_exp, y_exp, 
@@ -183,81 +181,129 @@ def compare_capacity(sim_df: pd.DataFrame, exp_df: pd.DataFrame) -> float:
     return mean_absolute_percentage_error(y_true=y_exp, y_pred=y_sim)
 
 
-def process_parameters(updated_parameter_values: dict, 
-                       base_parameters: pybamm.Parameter,
+def process_parameters(base_parameters: pybamm.Parameter,
                        model: pybamm.models,
                        protocol: pybamm.Experiment,
-                       solver: pybamm.solvers):
+                       solver: pybamm.solvers,
+                       updated_parameter_values=None,
+                       initial_solution=None,
+                       return_solution=False):
     ### Create a copy from base-parameters
     trial_parameters = base_parameters.copy()
 
-    for key, val in updated_parameter_values.items():
-        trial_parameters[key] = val
+    trial_parameters.update(updated_parameter_values, check_already_exists=False)
 
     solution = run_simulation(model=model, parameters=trial_parameters, experiment=protocol,
-                              save_name=None, solver=solver)
+                              save_name=None, solver=solver, initial_sol=initial_solution)
 
     sim_dict = sol2arr(sol=solution, vars=["cycle", "step"] + basic_variables + overpotentials)
     sim_df = pd.DataFrame(sim_dict)
-    return sim_df
+    if return_solution:
+        return solution
+    else:
+        return sim_df
+
+def plot_variable(results_df: pd.DataFrame, xcol: str, ycol: str):
+    fig, ax = start_plot(dpi=200, style="darkgrid", figsize=(10, 10))
+    sns.lineplot(data=results_df, x=xcol, y=ycol, 
+                linewidth=4,
+                color="red",
+                ax=ax)
+    plt.show()
+    return
 
 def plot_overpotentials(results_df: pd.DataFrame, negative_ocp_function, positive_ocp_function,
-                        save_name: str, is_shown=True) -> None:
+                        save_name: str, is_shown=True, discharge=True):
     fig, ax = start_plot(dpi=200, style="darkgrid", figsize=(10, 10))
 
     initial_positive_lithiation = results_df["Positive electrode stoichiometry"].iloc[0]
     initial_negative_lithiation = results_df["Negative electrode stoichiometry"].iloc[0]
+    
     discharge_ocp = positive_ocp_function(initial_positive_lithiation) - negative_ocp_function(initial_negative_lithiation)
 
-    cols = {'Battery negative particle concentration overpotential [V]': 'Negative particle concentration overpotential [V]',
-       'Battery positive particle concentration overpotential [V]': 'Positive particle concentration overpotential [V]',
-       'X-averaged battery negative reaction overpotential [V]': 'Negative reaction overpotential [V]',
-       'X-averaged battery positive reaction overpotential [V]': 'Positive reaction overpotential [V]',
-       'X-averaged battery concentration overpotential [V]': 'Electrolyte concentration overpotential [V]',
-       'X-averaged battery electrolyte ohmic losses [V]': 'Electrolyte ohmic losses [V]',
-       'X-averaged battery negative solid phase ohmic losses [V]': 'Negative solid phase ohmic losses [V]',
-       'X-averaged battery positive solid phase ohmic losses [V]': 'Positive solid phase ohmic losses [V]'
-       }
+    cols = {
+            'Battery negative particle concentration overpotential [V]': 'Negative particle concentration overpotential [V]',
+            'Battery positive particle concentration overpotential [V]': 'Positive particle concentration overpotential [V]',
+            'X-averaged battery negative reaction overpotential [V]': 'Negative reaction overpotential [V]',
+            'X-averaged battery positive reaction overpotential [V]': 'Positive reaction overpotential [V]',
+            'X-averaged battery concentration overpotential [V]': 'Electrolyte concentration overpotential [V]',
+            'X-averaged battery electrolyte ohmic losses [V]': 'Electrolyte ohmic losses [V]',
+            'X-averaged battery negative solid phase ohmic losses [V]': 'Negative solid phase ohmic losses [V]',
+            'X-averaged battery positive solid phase ohmic losses [V]': 'Positive solid phase ohmic losses [V]'
+            }
+
+    ## split results_df into steps
 
     for i, col in enumerate(list(cols.keys())):
-        if i == 0:
-            positive_ocp_loss = positive_ocp_function(initial_positive_lithiation) - positive_ocp_function(results_df["Positive electrode stoichiometry"]) 
-            negative_ocp_loss = negative_ocp_function(results_df["Negative electrode stoichiometry"]) - negative_ocp_function(initial_negative_lithiation)
+        if discharge:
+            if i == 0:
+                positive_ocp_loss = positive_ocp_function(initial_positive_lithiation) - positive_ocp_function(results_df["Positive electrode stoichiometry"]) 
+                negative_ocp_loss = negative_ocp_function(results_df["Negative electrode stoichiometry"]) - negative_ocp_function(initial_negative_lithiation)
 
-            plt.fill_between(results_df["Discharge capacity [A.h]"],
-                            discharge_ocp - negative_ocp_loss,
-                            discharge_ocp,
-                            alpha=0.3,
-                            label="Negative OCP"
-                            )
-            upper_bound = discharge_ocp - negative_ocp_loss
+                plt.fill_between(results_df["Time [s]"],
+                                discharge_ocp - negative_ocp_loss,
+                                discharge_ocp,
+                                alpha=0.3,
+                                label="Negative OCP"
+                                )
+                upper_bound = discharge_ocp - negative_ocp_loss
 
-            plt.fill_between(results_df["Discharge capacity [A.h]"],
-                            upper_bound - positive_ocp_loss,
+                plt.fill_between(results_df["Time [s]"],
+                                upper_bound - positive_ocp_loss,
+                                upper_bound,
+                                alpha=0.3,
+                                label="Positive OCP"
+                                )
+                upper_bound -= positive_ocp_loss
+            
+            eta = results_df[col].apply(lambda x: x*(-1) if x < 0 else x)
+            plt.fill_between(results_df["Time [s]"],
+                            upper_bound - eta,
                             upper_bound,
                             alpha=0.3,
-                            label="Positive OCP"
+                            label=cols[col]
                             )
-            upper_bound -= positive_ocp_loss
+            upper_bound -= eta
             
-        eta = results_df[col].apply(lambda x: x*(-1) if x < 0 else x)
-        plt.fill_between(results_df["Discharge capacity [A.h]"],
-                        upper_bound - eta,
-                        upper_bound,
-                        alpha=0.3,
-                        label=cols[col]
-                        )
-        upper_bound -= eta
-        
-    sns.lineplot(data=results_df, x="Discharge capacity [A.h]", y="Voltage [V]", 
-                label="Voltage", ls="--", color="cyan", linewidth=4)
+        else:
+            if i == 0:
+                positive_ocp_loss = positive_ocp_function(results_df["Positive electrode stoichiometry"]) - positive_ocp_function(initial_positive_lithiation)
+                negative_ocp_loss = negative_ocp_function(initial_negative_lithiation) - negative_ocp_function(results_df["Negative electrode stoichiometry"])
 
+                plt.fill_between(results_df["Time [s]"],
+                                discharge_ocp,
+                                discharge_ocp + negative_ocp_loss,
+                                alpha=0.3,
+                                label="Negative OCP"
+                                )
+                upper_bound = discharge_ocp + negative_ocp_loss
+
+                plt.fill_between(results_df["Time [s]"],
+                                upper_bound,
+                                upper_bound + positive_ocp_loss,
+                                alpha=0.3,
+                                label="Positive OCP"
+                                )
+                upper_bound += positive_ocp_loss
+                
+            eta = results_df[col].apply(lambda x: x*(-1) if x < 0 else x)
+            # eta = results_df[col]
+            plt.fill_between(results_df["Time [s]"],
+                            upper_bound,
+                            upper_bound + eta,
+                            alpha=0.3,
+                            label=cols[col]
+                            )
+            upper_bound += eta
+
+    sns.lineplot(data=results_df, x="Time [s]", y="Voltage [V]", 
+                 label="Voltage", ls="--", color="cyan", linewidth=4)
     ax.legend(shadow=True)
     plt.ylabel(rf"$\bf Voltage [V]$", fontsize=30)
-    plt.xlabel(rf"$\bf Discharge capacity [A.h]$", fontsize=30)
+    plt.xlabel(rf"$\bf Time [s]$", fontsize=30)
     plt.xticks(fontsize=20)
     plt.yticks(fontsize=20)
-    ax.legend(shadow=True, loc="lower left")
+    ax.legend(shadow=True, loc="best")
 
     if save_name:
         dirname = os.path.dirname(save_name)
