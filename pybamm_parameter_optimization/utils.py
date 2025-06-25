@@ -196,7 +196,7 @@ def process_parameters(base_parameters: pybamm.Parameter,
     solution = run_simulation(model=model, parameters=trial_parameters, experiment=protocol,
                               save_name=None, solver=solver, initial_sol=initial_solution)
 
-    sim_dict = sol2arr(sol=solution, vars=["cycle", "step"] + basic_variables + overpotentials)
+    sim_dict = sol2arr(sol=solution, vars=["cycle", "step"] + basic_variables + overpotentials + capacity_losses)
     sim_df = pd.DataFrame(sim_dict)
     if return_solution:
         return solution
@@ -312,3 +312,6 @@ def plot_overpotentials(results_df: pd.DataFrame, negative_ocp_function, positiv
     if is_shown:
         plt.show()
     return fig
+
+def exponential_decay(A: float, k:float, p:float, t:np.array):
+    return A * np.exp(-(k * t) ** p)

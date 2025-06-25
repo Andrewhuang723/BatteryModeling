@@ -5,7 +5,7 @@ import pandas as pd
 from pybamm.models.full_battery_models.lithium_ion import DFN
 import pybamm
 import numpy as np
-from pybamm_parameter_optimization.utils import process_parameters, compare_capacity, compare_voltage, start_plot, plot_overpotentials, sol2arr, basic_variables, overpotentials
+from pybamm_parameter_optimization.utils import process_parameters, compare_capacity, compare_voltage, start_plot, plot_overpotentials, sol2arr, basic_variables, overpotentials, capacity_losses
 import seaborn as sns
 import argparse
 import yaml
@@ -79,11 +79,11 @@ df = pd.read_csv(DATA_PATH)
 ### Process PROTOCOL
 print(PROTOCOL.split(","))
 protocol = pybamm.Experiment(
-    [
-        tuple(PROTOCOL.split(","))
-    ] * CYCLE,
-    period=f"{PERIOD} seconds",
-    )
+            [
+                tuple(PROTOCOL.split(","))
+            ] * CYCLE,
+            period=f"{PERIOD} seconds",
+        )   
 
 try:
     # Set pybamm value
@@ -95,7 +95,7 @@ try:
     parameters = pybamm.ParameterValues(parameters_values)
     parameters["Negative electrode OCP [V]"] = graphite_ocp_Ramadass2004
     parameters["Negative electrode exchange-current density [A.m-2]"] = graphite_electrolyte_exchange_current_density_Ramadass2004
-
+    
     ## Update SEI parametesr
     if SEI_PARAMETERS:
         for key, value in SEI_PARAMETERS.items():
@@ -113,10 +113,10 @@ try:
     if CYCLE == 1:
         ## Simulation
         sim_df = process_parameters(updated_parameter_values=PARAMETERS,
-                            base_parameters=parameters,
-                            model=model,
-                            protocol=protocol,
-                            solver=safe_solver)
+                                    base_parameters=parameters,
+                                    model=model,
+                                    protocol=protocol,
+                                    solver=safe_solver)
         sim_df.to_csv(os.path.join(SAVE_DIR, "results.csv"), index=False)    
 
         ## Store error values
@@ -169,7 +169,7 @@ try:
                                                 solver=safe_solver,
                                                 initial_solution=init_sol,
                                                 return_solution=True)
-                sim_dict = sol2arr(sol=solution, vars=["cycle", "step"] + basic_variables + overpotentials)
+                sim_dict = sol2arr(sol=solution, vars=["cycle", "step"] + basic_variables + overpotentials + capacity_losses)
                 sim_df = pd.DataFrame(sim_dict)
 
                 os.makedirs(SAVE_DIR, exist_ok=True)

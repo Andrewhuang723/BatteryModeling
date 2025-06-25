@@ -7,7 +7,7 @@ Initial concentration in positive electrode [mol.m-3]: 22.819000000000003
 Initial concentration in negative electrode [mol.m-3]: 24975.0
 Cation transference number: 0.609
 Positive particle radius [m]: 5.00e-07
-"Negative particle radius [m]": 6.951866670013931e-08
+Negative particle radius [m]: 6.951866670013931e-08
 Positive electrode porosity: 0.55
 Positive electrode OCP entropic change [V.K-1]: 2.00e-3
 Positive electrode charge transfer coefficient: 0.1
