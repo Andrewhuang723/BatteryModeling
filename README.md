@@ -95,7 +95,7 @@ sns.lineplot(x=cycle_Q_sim.index, y=cycle_Q_sim, marker="o",
 
 ```
 
-![alt text](image.png)
+![alt text](fig/image.png)
 
 
 ### `run_calendar_experiment.py`
@@ -131,7 +131,7 @@ sns.lineplot(data=calendar_sim,
 ```
 
 
-![alt text](image-1.png)
+![alt text](fig/image-1.png)
 
 ### `run.sh`
 A convenience shell script which runs the above commands with example paths.
