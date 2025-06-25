@@ -77,6 +77,27 @@ python run_cycle_experiment.py \
   --sei_parameters_config <sei.yaml>
 ```
 
+
+#### - View results:
+Read the data from your `SAVE_DIR`
+
+```
+from pybamm_parameter_optimization.utils import get_cycle_col, start_plot
+import seaborn as sns
+
+sim_df = pd.read_csv(f"{SAVE_DIR}/3900_4000_results.csv")
+cycle_Q_sim = get_cycle_col(col="Discharge capacity [A.h]", cycle_df=sim_df, step_idx=4)
+
+fig, ax = start_plot(dpi=200, figsize=(10, 8), style="darkgrid")
+sns.lineplot(x=cycle_Q_sim.index, y=cycle_Q_sim, marker="o",
+            label=rf"$\bf\\Simulation\ 1$", 
+            color="darkorange", markersize=8, markeredgecolor='black', markeredgewidth=0.1)
+
+```
+
+![alt text](image.png)
+
+
 ### `run_calendar_experiment.py`
 Simulate calendar ageing including optional preprocessing steps.
 
@@ -89,6 +110,28 @@ python run_calendar_experiment.py \
   --parameters_config <parameters.yaml> \
   --sei_parameters_config <sei.yaml>
 ```
+
+
+#### - View results:
+Read the data from your `SAVE_DIR`
+
+```
+from pybamm_parameter_optimization.utils import get_cycle_col, start_plot
+import seaborn as sns
+
+sim_df = pd.read_csv(f"{SAVE_DIR}/results.csv")
+calendar_sim = return_calendar_df(sim_df, charge_cycles=list(np.arange(3, 843, 7)))
+
+fig, ax = start_plot(dpi=200, figsize=(8, 6), style="darkgrid")
+sns.lineplot(data=calendar_sim,
+             x=xcol, y=ycol, 
+             label=rf"$\bf\\Sim:\ 30\%@35^{{\circ}} C$", 
+            color="darkorange", linewidth=3)
+
+```
+
+
+![alt text](image-1.png)
 
 ### `run.sh`
 A convenience shell script which runs the above commands with example paths.
